@@ -1,0 +1,11 @@
+from pydantic import BaseModel, Field
+from typing import Optional, Dict
+import datetime
+
+class Vote(BaseModel):
+    user_id: str
+    candidate_id: str
+    timestamp: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.now)
+
+class VoteResult(BaseModel):
+    results: Dict[str, int]

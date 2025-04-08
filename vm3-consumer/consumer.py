@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
 import json
 import logging
 import time
-import datetime
 import psycopg2
 import redis
 from kafka import KafkaConsumer
 from typing import Dict, Any, List
+from datetime import datetime
 
 # 로깅 설정
 logging.basicConfig(
@@ -15,25 +14,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("VoteConsumer")
 
-# 설정 변수
-KAFKA_BOOTSTRAP_SERVERS = ['172.16.1.17:9092']  # VM2의 Kafka 서버 주소
-KAFKA_TOPIC = 'vote-events'
-KAFKA_GROUP_ID = 'vote-consumer-group'
-
-# PostgreSQL 연결 정보
-DB_HOST = 'localhost'
-DB_PORT = 5432
-DB_NAME = 'votingdb'
-DB_USER = 'voteuser'
-DB_PASSWORD = 'votepass'
-
-# Redis 연결 정보
-REDIS_HOST = '172.16.1.17'  # VM2의 Redis 주소
-REDIS_PORT = 6379
-REDIS_DB = 0
-
 class MessageTracker:
-    def __init__(self, redis_host="localhost", redis_port=6379, redis_db=1):
+    def __init__(self, redis_host="172.16.1.17", redis_port=6379, redis_db=1):
         self.redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
         self.logger = logging.getLogger("MessageTracker")
     
@@ -43,7 +25,7 @@ class MessageTracker:
         value = {
             "message_id": message_id,
             "status": status,
-            "timestamp": datetime.datetime.now().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "details": details or {}
         }
         
@@ -63,11 +45,11 @@ class MessageTracker:
 
 class VoteConsumer:
     def __init__(self, 
-                bootstrap_servers=["localhost:9092"], 
+                bootstrap_servers=["172.16.1.17:9092"], 
                 topic="vote-events",
-                redis_host="localhost",
+                redis_host="172.16.1.17",
                 redis_port=6379,
-                postgres_host="localhost",
+                postgres_host="172.16.1.17",
                 postgres_port=5432,
                 postgres_db="votes_db",
                 postgres_user="postgres",
@@ -106,13 +88,16 @@ class VoteConsumer:
         return psycopg2.connect(**self.pg_conn_info)
     
     def process_vote(self, vote_data: Dict[str, Any]):
+        self.logger.info(f"Received vote_data: {vote_data}")
         """투표 데이터를 처리합니다."""
         user_id = vote_data["user_id"]
+        vote_type = vote_data.get("vote_type")  # vote_type 키가 없을 수 있음
+        # 디버깅을 위해 전체 vote_data 출력\n        self.logger.info(f"Received vote_data: {vote_data}")
         candidate_id = vote_data["candidate_id"]
         timestamp = vote_data["timestamp"]
         message_id = vote_data.get("message_id", "unknown")
         
-        self.logger.info(f"Processing vote: {message_id} from user {user_id} for {candidate_id}")
+        self.logger.info(f"Processing vote: {message_id} from user {user_id} for {candidate_id} - vote_type: {vote_type}")
         
         # 메시지 소비 상태 기록
         self.tracker.record_status(
@@ -127,20 +112,20 @@ class VoteConsumer:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         """
-                        INSERT INTO votes (user_id, candidate_id, vote_time, message_id) 
-                        VALUES (%s, %s, %s, %s)
+                        INSERT INTO votes (user_id, candidate_id, vote_time, message_id, vote_type) 
+                        VALUES (%s, %s, %s, %s, %s)
                         """, 
-                        (user_id, candidate_id, timestamp, message_id)
+                        (user_id, candidate_id, timestamp, message_id, vote_type)
                     )
                     conn.commit()
                     
             self.logger.info(f"Vote saved to PostgreSQL: {message_id}")
             
             # Redis에 투표 수 증가
-            vote_key = f"vote_result:{candidate_id}"
+            vote_key = f"vote_result:{candidate_id}:{vote_type}"
             self.redis_client.incr(vote_key)
             
-            self.logger.info(f"Vote count updated in Redis: {candidate_id}")
+            self.logger.info(f"Vote count updated in Redis: {candidate_id}:{vote_type}")
             
             # 메시지 처리 완료 상태 기록
             self.tracker.record_status(
