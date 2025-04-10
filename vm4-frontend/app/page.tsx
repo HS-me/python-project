@@ -28,12 +28,23 @@ export default function Home() {
     setError('');
 
     try {
-      // VM2의 FastAPI 서버로 투표 데이터 전송
+      // 사용자 ID 생성
+      const userId = 'anonymous-' + Math.random().toString(36).substring(2, 9);
+      
+      // 월 1회 회식에 대한 투표
       await axios.post('http://172.16.1.17:8000/api/vote', {
-        user_id: 'anonymous-' + Math.random().toString(36).substring(2, 9),
-        candidate_id: monthly + '-' + biweekly
+        user_id: userId + '-monthly',
+        candidate_id: 'monthly',
+        vote_type: monthly
       });
-    
+      
+      // 2주 1회 회식에 대한 투표
+      await axios.post('http://172.16.1.17:8000/api/vote', {
+        user_id: userId + '-biweekly',
+        candidate_id: 'biweekly',
+        vote_type: biweekly
+      });
+
       // 투표 완료 후 로컬 스토리지에 저장
       localStorage.setItem('hasVoted', 'true');
       setHasVoted(true);
@@ -105,9 +116,9 @@ export default function Home() {
     <div style={containerStyle}>
       <div style={cardStyle}>
         <h1 style={titleStyle}>회식 주기 투표</h1>
-        
+
         <div style={{marginBottom: '1.5rem'}}>
-          <h2 style={{fontSize: '1.25rem', fontWeight: '500', marginBottom: '0.75rem'}}>월 1회 회식</h2>
+          <h2 style={{fontSize: '1.25rem', fontWeight: '500', marginBottom: '0.75rem'}}>월 1회 회식</h2>    
           <div style={{display: 'flex', gap: '1rem'}}>
             <button
               onClick={() => setMonthly('for')}
@@ -139,9 +150,9 @@ export default function Home() {
             </button>
           </div>
         </div>
-        
+
         <div style={{marginBottom: '1.5rem'}}>
-          <h2 style={{fontSize: '1.25rem', fontWeight: '500', marginBottom: '0.75rem'}}>2주 1회 회식</h2>
+          <h2 style={{fontSize: '1.25rem', fontWeight: '500', marginBottom: '0.75rem'}}>2주 1회 회식</h2>   
           <div style={{display: 'flex', gap: '1rem'}}>
             <button
               onClick={() => setBiweekly('for')}
@@ -179,7 +190,7 @@ export default function Home() {
             {error}
           </div>
         )}
-        
+
         <button
           onClick={handleVote}
           disabled={loading}
@@ -193,4 +204,4 @@ export default function Home() {
       </div>
     </div>
   );
-}
+} 

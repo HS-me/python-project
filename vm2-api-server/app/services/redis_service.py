@@ -1,7 +1,10 @@
 import redis
+import os
 
 class RedisService:
-    def __init__(self, host="localhost", port=6379, db=0):
+    def __init__(self, host=None, port=None, db=0):
+        host = host or os.getenv("REDIS_HOST", "redis-service")
+        port = int(port or os.getenv("REDIS_PORT", "6379"))
         self.redis_client = redis.Redis(host=host, port=port, db=db)
 
     def get_vote_results(self):

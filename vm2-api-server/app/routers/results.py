@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.vote import VoteResult
 from app.services.redis_service import RedisService
+import os
 
 router = APIRouter(prefix="/api", tags=["results"])
 
 # Redis 서비스 인스턴스
-redis_service = RedisService()
+redis_service = RedisService(host="172.16.1.17", port=6379)
 
 @router.get("/results", response_model=VoteResult)
 async def get_results():
