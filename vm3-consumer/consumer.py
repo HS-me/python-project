@@ -6,6 +6,7 @@ import redis
 from kafka import KafkaConsumer
 from typing import Dict, Any, List
 from datetime import datetime
+import os
 
 # 로깅 설정
 logging.basicConfig(
@@ -45,15 +46,15 @@ class MessageTracker:
 
 class VoteConsumer:
     def __init__(self, 
-                bootstrap_servers=["172.16.1.17:9092"], 
-                topic="vote-events",
-                redis_host="172.16.1.17",
-                redis_port=6379,
-                postgres_host="172.16.1.17",
-                postgres_port=5432,
-                postgres_db="votes_db",
-                postgres_user="postgres",
-                postgres_password="postgres"):
+                bootstrap_servers=[os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka-service:9092")], 
+                topic=os.environ.get("KAFKA_TOPIC", "vote-events"),
+                redis_host=os.environ.get("REDIS_HOST", "redis-service"),
+                redis_port=int(os.environ.get("REDIS_PORT", "6379")),
+                postgres_host=os.environ.get("POSTGRES_HOST", "postgres-service"),
+                postgres_port=int(os.environ.get("POSTGRES_PORT", "5432")),
+                postgres_db=os.environ.get("POSTGRES_DB", "votes_db"),
+                postgres_user=os.environ.get("POSTGRES_USER", "postgres"),
+                postgres_password=os.environ.get("POSTGRES_PASSWORD", "postgres")):
         
         # Kafka 컨슈머 설정
         self.consumer = KafkaConsumer(
