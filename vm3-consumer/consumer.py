@@ -16,7 +16,9 @@ logging.basicConfig(
 logger = logging.getLogger("VoteConsumer")
 
 class MessageTracker:
-    def __init__(self, redis_host="172.16.1.17", redis_port=6379, redis_db=1):
+    def __init__(self, redis_host=None, redis_port=None, redis_db=1):
+        redis_host = redis_host or os.getenv("REDIS_HOST", "redis-service")
+        redis_port = int(redis_port or os.getenv("REDIS_PORT", "6379"))
         self.redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
         self.logger = logging.getLogger("MessageTracker")
     
