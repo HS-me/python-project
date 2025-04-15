@@ -1,17 +1,36 @@
 import logging
 import redis
 import json
+import os
 from datetime import datetime
 from app.models.vote import MessageStatus
 from typing import List, Dict, Optional
 
 class MessageTrackingService:
-    def __init__(self, redis_host="localhost", redis_port=6379, redis_db=1):
-        self.redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+    def __init__(self, redis_host=None, redis_port=None, redis_db=1):
+        # 환경 변수 또는 기본값 사용
+        redis_host = redis_host or os.environ.get("REDIS_HOST", "redis")
+        redis_port = redis_port or int(os.environ.get("REDIS_PORT", 6379))
+        
         self.logger = logging.getLogger("MessageTrackingService")
+        self.logger.info(f"Connecting to Redis at {redis_host}:{redis_port}")
+        
+        try:
+            self.redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+            # 연결 테스트
+            self.redis_client.ping()
+            self.logger.info("Successfully connected to Redis")
+        except Exception as e:
+            self.logger.error(f"Failed to connect to Redis: {str(e)}")
+            # 실패 시에도 계속 진행 (degraded mode)
+            self.redis_client = None
     
     def record_message_status(self, status: MessageStatus):
         """메시지 상태를 Redis에 기록합니다."""
+        if self.redis_client is None:
+            self.logger.warning("Redis client is not available, skipping message status recording")
+            return False
+            
         key = f"msg:{status.message_id}:{status.status}"
         value = {
             "message_id": status.message_id,

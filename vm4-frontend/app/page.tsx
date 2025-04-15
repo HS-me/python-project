@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { config } from './config';
 
 export default function Home() {
   const [hasVoted, setHasVoted] = useState(false);
@@ -32,14 +33,14 @@ export default function Home() {
       const userId = 'anonymous-' + Math.random().toString(36).substring(2, 9);
       
       // 월 1회 회식에 대한 투표
-      await axios.post('http://172.16.1.17:8000/api/vote', {
+      await axios.post(`${config.apiUrl}/api/vote`, {
         user_id: userId + '-monthly',
         candidate_id: 'monthly',
         vote_type: monthly
       });
       
       // 2주 1회 회식에 대한 투표
-      await axios.post('http://172.16.1.17:8000/api/vote', {
+      await axios.post(`${config.apiUrl}/api/vote`, {
         user_id: userId + '-biweekly',
         candidate_id: 'biweekly',
         vote_type: biweekly

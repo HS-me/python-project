@@ -2,17 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { config } from '../config';
 
 export default function Results() {
-  const [results, setResults] = useState({});
+  const [results, setResults] = useState<any>({
+    monthly: { for: 0, against: 0 },
+    biweekly: { for: 0, against: 0 }
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchResults = async () => {
       try {
-        const response = await axios.get('http://172.16.1.17:8000/api/results');
-        setResults(response.data.results || {});
+        const response = await axios.get(`${config.apiUrl}/api/results`);
+        if (response.data && response.data.results) {
+          setResults(response.data.results);
+        } else {
+          setResults(response.data || {});
+        }
         setLoading(false);
       } catch (err) {
         setError('결과를 불러오는 중 오류가 발생했습니다.');
@@ -27,9 +35,9 @@ export default function Results() {
   const containerStyle = {
     display: 'flex',
     minHeight: '100vh',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: 'column' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     padding: '1rem',
     background: '#f5f5f5'
   };
@@ -45,8 +53,8 @@ export default function Results() {
 
   const titleStyle = {
     fontSize: '1.5rem',
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: 'bold' as const,
+    textAlign: 'center' as const,
     marginBottom: '1.5rem'
   };
 
@@ -54,7 +62,7 @@ export default function Results() {
     width: '100%',
     background: '#3b82f6',
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     padding: '0.5rem 1rem',
     border: 'none',
     borderRadius: '4px',

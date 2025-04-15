@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  vote-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-service.cluster.local:9092
+      - REDIS_HOST=redis-service.cluster.local
+      - REDIS_PORT=6379
+    restart: always
+    networks:
+      - voting-network
+    volumes:
+      - ./consumer.py:/app/consumer.py
+      - ./consumer.log:/app/consumer.log
+
+networks:
+  voting-network:
+    driver: bridge
+    name: voting-network 

@@ -1,11 +1,26 @@
 import redis
 import os
+import logging
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class RedisService:
-    def __init__(self, host=None, port=None, db=0):
-        host = host or os.getenv("REDIS_HOST", "redis-service")
-        port = int(port or os.getenv("REDIS_PORT", "6379"))
-        self.redis_client = redis.Redis(host=host, port=port, db=db)
+    def __init__(self, host=None, port=None):
+        # 인자로 전달된 값 또는 환경 변수에서 Redis 서버 주소 가져오기
+        redis_host = host or os.environ.get("REDIS_HOST", "redis")
+        redis_port = port or int(os.environ.get("REDIS_PORT", 6379))
+        
+        logger.info(f"Connecting to Redis at {redis_host}:{redis_port}")
+        self.redis_client = redis.Redis(
+            host=redis_host,
+            port=redis_port,
+            decode_responses=True
+        )
+        
+    def get_client(self):
+        return self.redis_client
 
     def get_vote_results(self):
         """투표 결과를 Redis에서 가져옴"""
@@ -18,7 +33,8 @@ class RedisService:
         results["biweekly"] = {"for": 0, "against": 0, "total": 0}
 
         for key in keys:
-            key_str = key.decode("utf-8")
+            # decode_responses=True가 설정된 경우 이미 디코딩된 상태
+            key_str = key if isinstance(key, str) else key.decode("utf-8")
             parts = key_str.split(":")
             
             vote_count = int(self.redis_client.get(key))
