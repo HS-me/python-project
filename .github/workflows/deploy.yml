@@ -15,17 +15,21 @@ jobs:
 
       - name: Set up Docker and run services
         run: |
-          cd gather-poll-system
           docker compose up -d
           sleep 30  # 서비스 뜰 시간 여유줌
 
       - name: Check container status
         run: |
-          cd gather-poll-system
           docker compose ps
 
       - name: Check FastAPI is up
-        run: curl -f http://localhost:8000/docs
+        run: |
+          for i in {1..10}; do
+            echo "Checking FastAPI... attempt $i"
+            curl -f http://localhost:8000/docs && exit 0 || sleep 5
+          done
+          echo "FastAPI not reachable after 50s"
+          exit 1
 
       - name: Check Frontend is up
         run: curl -f http://localhost:3000
@@ -33,7 +37,6 @@ jobs:
       - name: Tear down containers
         if: always()
         run: |
-          cd gather-poll-system
           docker compose down
 
   cd:
@@ -65,6 +68,6 @@ jobs:
 
             rm -rf ${{ secrets.VM_PATH }}
             git clone https://github.com/HS-me/python-project.git ${{ secrets.VM_PATH }}
-            cd ${{ secrets.VM_PATH }}/gather-poll-system
+            cd ${{ secrets.VM_PATH }}
             docker compose up --build -d
           "
