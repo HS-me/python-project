@@ -17,7 +17,12 @@ jobs:
         run: |
           cd gather-poll-system
           docker compose up -d
-          sleep 10
+          sleep 30  # 서비스 뜰 시간 여유줌
+
+      - name: Check container status
+        run: |
+          cd gather-poll-system
+          docker compose ps
 
       - name: Check FastAPI is up
         run: curl -f http://localhost:8000/docs
