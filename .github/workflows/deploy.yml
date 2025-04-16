@@ -1,0 +1,47 @@
+name: Deploy to VM2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy to VM2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          
+      - name: Add host key to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to VM2
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} "
+            # 이전 배포가 있다면 중지
+            if [ -d '${{ secrets.VM_PATH }}' ]; then
+              cd ${{ secrets.VM_PATH }}
+              docker compose down || true
+            else
+              mkdir -p ${{ secrets.VM_PATH }}
+            fi
+            
+            # 최신 코드 클론
+            rm -rf ${{ secrets.VM_PATH }}
+            git clone https://github.com/f-lab-edu/gather-poll-system.git ${{ secrets.VM_PATH }}
+            
+            # 배포 실행
+            cd ${{ secrets.VM_PATH }}
+            docker compose up --build -d
+            
+            # 배포 상태 확인
+            docker compose ps
+          " 
