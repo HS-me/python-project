@@ -9,7 +9,7 @@ from typing import List, Dict, Optional
 class MessageTrackingService:
     def __init__(self, redis_host=None, redis_port=None, redis_db=1):
         # 환경 변수 또는 기본값 사용
-        redis_host = redis_host or os.environ.get("REDIS_HOST", "redis")
+        redis_host = redis_host or os.environ.get("REDIS_HOST", "redis-service.cluster.local")
         redis_port = redis_port or int(os.environ.get("REDIS_PORT", 6379))
         
         self.logger = logging.getLogger("MessageTrackingService")

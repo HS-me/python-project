@@ -9,6 +9,11 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka-service.cluster.local:9092
       - REDIS_HOST=redis-service.cluster.local
       - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=votingdb
     dns:
       - 172.16.1.16  # VM1의 DNSmasq 서버
     restart: always
@@ -17,8 +22,28 @@ services:
     volumes:
       - ./consumer.py:/app/consumer.py
       - ./consumer.log:/app/consumer.log
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=votingdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - voting-network
+    ports:
+      - '5432:5432'
+    restart: always
+    command: postgres -c 'max_connections=200' -c 'listen_addresses=*' -c 'log_statement=all'
 
 networks:
   voting-network:
     driver: bridge
-    name: voting-network 
+    name: voting-network
+
+volumes:
+  postgres_data: 

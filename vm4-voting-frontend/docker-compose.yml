@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api-service.cluster.local:8000
+    dns:
+      - 172.16.1.16  # VM1의 DNSmasq 서버
+    networks:
+      - voting-network
+
+networks:
+  voting-network:
+    driver: bridge 

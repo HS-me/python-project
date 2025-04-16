@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class RedisService:
     def __init__(self, host=None, port=None):
         # 인자로 전달된 값 또는 환경 변수에서 Redis 서버 주소 가져오기
-        redis_host = host or os.environ.get("REDIS_HOST", "redis")
+        redis_host = host or os.environ.get("REDIS_HOST", "redis-service.cluster.local")
         redis_port = port or int(os.environ.get("REDIS_PORT", 6379))
         
         logger.info(f"Connecting to Redis at {redis_host}:{redis_port}")
@@ -33,8 +33,8 @@ class RedisService:
         results["biweekly"] = {"for": 0, "against": 0, "total": 0}
 
         for key in keys:
-            # decode_responses=True가 설정된 경우 이미 디코딩된 상태
-            key_str = key if isinstance(key, str) else key.decode("utf-8")
+            # 키는 이미 문자열 상태임 (decode_responses=True 설정 때문)
+            key_str = key  # 추가 디코딩 필요 없음
             parts = key_str.split(":")
             
             vote_count = int(self.redis_client.get(key))

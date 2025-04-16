@@ -62,29 +62,49 @@ class VoteConsumer:
         
         # PostgreSQL 연결
         self.db_connection = self._init_db_connection()
-        
+        if not self.db_connection:
+            logger.critical("초기 PostgreSQL 연결 실패. 컨슈머가 데이터베이스에 저장할 수 없습니다.")
+            logger.critical("네트워크 설정, 자격 증명, PostgreSQL 서버 상태를 확인하세요.")
+            # 연결 실패해도 계속 진행 (Redis에는 저장 가능)
+
         logger.info("컨슈머 초기화 완료")
     
-    def _init_db_connection(self):
-        """PostgreSQL 데이터베이스 연결 초기화"""
-        try:
-            conn = psycopg2.connect(
-                host=self.pg_host,
-                port=self.pg_port,
-                dbname=self.pg_db,
-                user=self.pg_user,
-                password=self.pg_password
-            )
-            conn.autocommit = True
-            logger.info("PostgreSQL 데이터베이스 연결 성공")
-            
-            # 테이블 스키마 확인 및 필요한 경우 수정
-            self._check_and_fix_table_schema(conn)
-            
-            return conn
-        except Exception as e:
-            logger.error(f"PostgreSQL 연결 오류: {str(e)}")
-            return None
+    def _init_db_connection(self, max_retries=3, retry_delay=2):
+        """PostgreSQL 데이터베이스 연결 초기화 (재시도 로직 포함)"""
+        retries = 0
+        last_error = None
+
+        while retries < max_retries:
+            try:
+                logger.info(f"PostgreSQL 연결 시도 ({retries+1}/{max_retries})...")
+
+                conn = psycopg2.connect(
+                    host=self.pg_host,
+                    port=self.pg_port,
+                    dbname="votingdb",
+                    user="postgres",
+                    password="postgres"
+                )
+
+                # Autocommit 설정 (명시적 트랜잭션 관리 용이)
+                conn.autocommit = True
+
+                logger.info("PostgreSQL 데이터베이스 연결 성공")
+
+                # 테이블 스키마 확인 및 필요한 경우 수정
+                self._check_and_fix_table_schema(conn)
+
+                return conn
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"PostgreSQL 연결 실패 ({retries+1}/{max_retries}): {str(e)}")
+                retries += 1
+                if retries < max_retries:
+                    logger.info(f"{retry_delay}초 후 재시도...")
+                    time.sleep(retry_delay)
+
+        logger.error(f"PostgreSQL 연결 최종 실패: {last_error}")
+        return None
     
     def _check_and_fix_table_schema(self, conn):
         """테이블 스키마를 확인하고 필요한 경우 수정"""
@@ -164,11 +184,19 @@ class VoteConsumer:
     
     def save_to_postgres(self, vote_data):
         """투표 데이터를 PostgreSQL에 저장"""
-        if not self.db_connection:
-            logger.error("PostgreSQL 연결이 없어 저장할 수 없습니다.")
-            return False
-            
+        # 연결이 없거나 닫혀 있으면 재연결
+        if not self.db_connection or (hasattr(self.db_connection, 'closed') and self.db_connection.closed):
+            logger.warning("PostgreSQL 연결이 없거나 닫혀 있어 재연결 시도...")
+            self.db_connection = self._init_db_connection()
+            if not self.db_connection:
+                logger.error("PostgreSQL 재연결 실패. 저장할 수 없습니다.")
+                return False
+
         try:
+            # timestamp 필드가 있으면 vote_time으로 변환
+            if 'timestamp' in vote_data and not 'vote_time' in vote_data:
+                vote_data['vote_time'] = vote_data['timestamp']
+
             cursor = self.db_connection.cursor()
             
             # 이미 존재하는지 확인 (중복 저장 방지)
@@ -191,7 +219,7 @@ class VoteConsumer:
                 (
                     vote_data['user_id'],
                     vote_data['candidate_id'],
-                    vote_data['vote_time'],  # timestamp에서 vote_time으로 변경
+                    vote_data.get('vote_time', datetime.now().isoformat()),  # timestamp에서 vote_time으로 변경
                     vote_data['message_id'],
                     vote_data.get('vote_type', 'for')
                 )
@@ -206,6 +234,8 @@ class VoteConsumer:
             try:
                 if self.db_connection.closed:
                     self.db_connection = self._init_db_connection()
+                    if not self.db_connection:
+                        logger.error("PostgreSQL 재연결 실패. 저장할 수 없습니다.")
             except:
                 pass
             return False
@@ -281,16 +311,26 @@ GROUP BY "candidate_id", "vote_type";
             logger.error(f"데이터 정합성 검증 오류: {str(e)}")
     
     def process_message(self, message):
+        """메시지 처리 로직"""
         try:
             vote_data = message.value
             candidate_id = vote_data['candidate_id']
             vote_type = vote_data.get('vote_type', 'for')  # 기본값은 'for'
             message_id = vote_data.get('message_id', 'unknown')
             
+            # timestamp 필드가 있으면 vote_time으로 변환
+            if 'timestamp' in vote_data and not 'vote_time' in vote_data:
+                vote_data['vote_time'] = vote_data['timestamp']
+
             # Redis에 투표 수 증가
             key = f"vote_result:{candidate_id}:{vote_type}"
             result = self.redis_client.incr(key)
             
+            # PostgreSQL 연결 확인 및 재시도
+            if not self.db_connection or (hasattr(self.db_connection, 'closed') and self.db_connection.closed):
+                logger.warning("PostgreSQL 연결 상태 확인 중 재연결 시도...")
+                self.db_connection = self._init_db_connection()
+
             # PostgreSQL에 저장
             saved = self.save_to_postgres(vote_data)
             if saved:
@@ -299,6 +339,9 @@ GROUP BY "candidate_id", "vote_type";
                 logger.warning(f"처리된 투표 ID: {message_id} - 후보: {candidate_id}, 타입: {vote_type}, 현재 수: {result}, PostgreSQL 저장: 실패")
             
             return True
+        except KeyError as ke:
+            logger.error(f"메시지 형식 오류 (필수 필드 누락): {str(ke)}")
+            return False
         except Exception as e:
             logger.error(f"메시지 처리 중 오류 발생: {str(e)}")
             return False
