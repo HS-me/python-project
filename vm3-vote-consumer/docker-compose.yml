@@ -9,6 +9,8 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka-service.cluster.local:9092
       - REDIS_HOST=redis-service.cluster.local
       - REDIS_PORT=6379
+    dns:
+      - 172.16.1.16  # VM1의 DNSmasq 서버
     restart: always
     networks:
       - voting-network
