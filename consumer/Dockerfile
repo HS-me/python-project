@@ -10,10 +10,11 @@ RUN apt-get update && apt-get install -y \
 # 로그 디렉토리 생성
 RUN mkdir -p /app/logs && touch /app/logs/consumer.log
 
-# SQL 파일 복사
-COPY init_db.sql .
-COPY recreate_votes_table.sql .
-COPY add_vote_type_column.sql .
+# SQL 파일 복사 
+# 이전에 있던 명령
+# COPY init_db.sql .
+# COPY recreate_votes_table.sql .
+# COPY add_vote_type_column.sql .
 
 # Python 패키지 설치
 COPY requirements.txt .
@@ -23,4 +24,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY consumer.py .
 
 # Consumer 실행
-CMD ["python", "consumer.py"] 
+CMD ["python", "consumer.py"]
