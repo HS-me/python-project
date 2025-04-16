@@ -33,6 +33,11 @@ services:
     networks:
       - voting-network
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # VM3 - Kafka Consumer
   vote-consumer:
