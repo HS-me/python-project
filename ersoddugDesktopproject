@@ -1,5 +1,0 @@
-[33mcommit b0d33e7e4ea53a8dfef2c7ccdb7c5890c75e0cc9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
-Author: HS-me <106362450+HS-me@users.noreply.github.com>
-Date:   Thu Apr 10 15:46:15 2025 +0900
-
-    Fix voting system: update Redis connection settings and frontend implementation for proper vote handling
