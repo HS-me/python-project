@@ -18,10 +18,20 @@ jobs:
           docker compose up -d
           sleep 30  # 서비스 뜰 시간 여유줌
 
-      - name: Check container status
+      - name: Check container status and logs
         run: |
           docker compose ps
+          echo "==== API Server Logs ===="
+          docker compose logs api-server
+          echo "==== Network Inspection ===="
+          docker network inspect python-project_voting-network
+          echo "==== Container Environment ===="
+          docker compose exec -T api-server env || echo "API Server not running"
 
+      - name: Test direct connection to API
+        run: |
+          docker compose exec -T api-server curl -v localhost:8000/docs || echo "API not reachable from inside container"
+          
       - name: Check FastAPI is up
         run: |
           for i in {1..10}; do
