@@ -1,0 +1,65 @@
+name: CI and CD Workflow
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  ci:
+    name: Build and Test (CI)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker and run services
+        run: |
+          cd gather-poll-system
+          docker compose up -d
+          sleep 10
+
+      - name: Check FastAPI is up
+        run: curl -f http://localhost:8000/docs
+
+      - name: Check Frontend is up
+        run: curl -f http://localhost:3000
+
+      - name: Tear down containers
+        if: always()
+        run: |
+          cd gather-poll-system
+          docker compose down
+
+  cd:
+    name: Deploy to VM2 (CD)
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+
+      - name: Add VM2 to known_hosts
+        run: ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: SSH into VM2 and Deploy
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} "
+            if [ -d '${{ secrets.VM_PATH }}' ]; then
+              cd ${{ secrets.VM_PATH }}
+              docker compose down || true
+            else
+              mkdir -p ${{ secrets.VM_PATH }}
+            fi
+
+            rm -rf ${{ secrets.VM_PATH }}
+            git clone https://github.com/HS-me/python-project.git ${{ secrets.VM_PATH }}
+            cd ${{ secrets.VM_PATH }}/gather-poll-system
+            docker compose up --build -d
+          "
