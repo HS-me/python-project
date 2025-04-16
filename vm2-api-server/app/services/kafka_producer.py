@@ -62,7 +62,7 @@ class KafkaProducerService:
     def send_message(self, topic, message):
         try:
             # 메시지에 타임스탬프 추가
-            message['timestamp'] = int(time.time() * 1000)
+            message['vote_time'] = int(time.time() * 1000)
             
             future = self.producer.send(topic, message)
             # 메시지 전송 결과 확인
@@ -111,7 +111,7 @@ class KafkaVoteProducer:
             "user_id": vote.user_id,
             "candidate_id": vote.candidate_id,
             "vote_type": vote.vote_type,
-            "timestamp": vote.timestamp.isoformat(),
+            "vote_time": vote.timestamp.isoformat(),
             "message_id": vote.message_id
         }
 
