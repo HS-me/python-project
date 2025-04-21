@@ -4,7 +4,7 @@ import os
 import redis
 import time
 from typing import List, Dict, Optional
-from app.models.vote import MessageStatus
+from models.vote import MessageStatus
 
 # 로깅 설정
 logger = logging.getLogger("MessageTrackingService")

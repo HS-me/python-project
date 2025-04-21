@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - secrets.yaml
+  - voting-secrets.yaml
+  - postgres/pv.yaml
+  - postgres/pvc.yaml
+  - postgres/deployment.yaml
+  - postgres/service.yaml
+  - redis/pv.yaml
+  - redis/configmap.yaml
+  - redis/statefulset.yaml
+  - redis/service.yaml
+  - kafka/zookeeper.yaml
+  - kafka/kafka.yaml
+  - api-server/deployment.yaml
+  - api-server/service.yaml
+  - vote-consumer/deployment.yaml
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+  - monitoring/prometheus.yaml
+  - monitoring/grafana.yaml
+  - monitoring/exporters.yaml
+
+images:
+  - name: voting-system-api-server
+    newName: oddugikr/voting-system-api-server
+    newTag: latest
+  - name: voting-system-vote-consumer
+    newName: oddugikr/voting-system-vote-consumer
+    newTag: latest
+  - name: voting-system-vote-frontend
+    newName: oddugikr/voting-system-vote-frontend
+    newTag: latest 

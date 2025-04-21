@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.models.vote import Vote, MessageStatus
-from app.services.kafka_producer import KafkaVoteProducer       
-from app.services.message_tracking import MessageTrackingService
+from models.vote import Vote, MessageStatus
+from services.kafka_producer import KafkaVoteProducer       
+from services.message_tracking import MessageTrackingService
 from typing import Dict, List, Optional
 import logging
 import traceback

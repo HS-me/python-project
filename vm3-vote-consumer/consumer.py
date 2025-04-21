@@ -5,6 +5,7 @@ import redis
 import os
 import time
 import sys
+import signal
 from datetime import datetime
 import psycopg2
 from psycopg2 import sql
@@ -20,6 +21,18 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# SIGTERM 시그널 핸들러 (그레이스풀 셧다운용)
+def handle_sigterm(*args):
+    logger.info("SIGTERM 시그널 수신, 안전하게 종료합니다...")
+    if hasattr(consumer, 'consumer') and consumer.consumer:
+        logger.info("Kafka 컨슈머 연결을 명시적으로 종료합니다")
+        consumer.consumer.close(autocommit=True)
+    if hasattr(consumer, 'db_connection') and consumer.db_connection:
+        logger.info("PostgreSQL 연결을 종료합니다")
+        consumer.db_connection.close()
+    logger.info("모든 리소스가 정상적으로 종료되었습니다")
+    sys.exit(0)
 
 class VoteConsumer:
     def __init__(self):
@@ -38,6 +51,10 @@ class VoteConsumer:
         
         logger.info(f"설정: KAFKA={kafka_servers}, REDIS={redis_host}:{redis_port}, POSTGRES={self.pg_host}:{self.pg_port}")
         
+        # 호스트명으로 고유 ID 생성
+        client_id = f"vote-consumer-{os.getenv('HOSTNAME', 'unknown')}-{int(time.time())}"
+        logger.info(f"고유 클라이언트 ID 생성: {client_id}")
+        
         # Kafka 컨슈머 설정
         self.consumer = KafkaConsumer(
             topic,
@@ -47,7 +64,8 @@ class VoteConsumer:
             group_id='vote-processor',
             value_deserializer=lambda x: json.loads(x.decode('utf-8')),
             session_timeout_ms=60000,
-            request_timeout_ms=70000
+            request_timeout_ms=70000,
+            client_id=client_id  # 고유 ID 추가
         )
         
         # Redis 클라이언트 설정
@@ -371,7 +389,12 @@ GROUP BY "candidate_id", "vote_type";
 
 if __name__ == "__main__":
     try:
+        # SIGTERM 시그널 핸들러 등록
+        consumer = None  # 전역 변수로 초기화
+        signal.signal(signal.SIGTERM, handle_sigterm)
+        
         consumer = VoteConsumer()
+        logger.info("SIGTERM 핸들러 등록 완료 - 안전한 종료 준비됨")
         consumer.start_consuming()
     except Exception as e:
         logger.critical(f"치명적 오류로 프로그램 종료: {str(e)}")

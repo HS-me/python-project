@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote-consumer
+  namespace: voting-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vote-consumer
+  template:
+    metadata:
+      labels:
+        app: vote-consumer
+    spec:
+      containers:
+      - name: vote-consumer
+        image: oddugikr/voting-system-vote-consumer:latest
+        imagePullPolicy: Always
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka.infra.svc.cluster.local:9092"
+        - name: REDIS_HOST
+          value: "redis.infra.svc.cluster.local"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: POSTGRES_HOST
+          value: "postgres.infra.svc.cluster.local"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: postgres-password
+        - name: POSTGRES_DB
+          value: "votingdb"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {} 

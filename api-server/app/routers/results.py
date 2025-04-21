@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.models.vote import VoteResult
-from app.services.redis_service import RedisService
+from models.vote import VoteResult
+from services.redis_service import RedisService
 import logging
 import redis
 import os

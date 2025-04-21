@@ -2,8 +2,8 @@ import json
 import logging
 import os
 from kafka import KafkaProducer
-from app.models.vote import Vote, MessageStatus
-from app.services.message_tracking import MessageTrackingService
+from models.vote import Vote, MessageStatus
+from services.message_tracking import MessageTrackingService
 import time
 from kafka.errors import NoBrokersAvailable
 import time

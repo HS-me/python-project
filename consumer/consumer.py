@@ -28,6 +28,10 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import DictCursor
 
+# Prometheus 메트릭 라이브러리 추가
+import prometheus_client
+from prometheus_client import Counter, Gauge, Histogram
+
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +59,15 @@ POSTGRES_DB = os.environ.get("POSTGRES_DB", "votingdb")
 
 # 상태 추적을 위한 글로벌 변수
 running = True
+
+# 메트릭 정의
+VOTES_CONSUMED = Counter('vote_consumer_consumed_total', 'Total number of votes consumed from Kafka')
+VOTES_PROCESSED = Counter('vote_consumer_processed_total', 'Total number of votes processed')
+VOTES_ERRORED = Counter('vote_consumer_errored_total', 'Total number of votes that had processing errors')
+VOTE_PROCESSING_TIME = Histogram('vote_consumer_processing_seconds', 'Time spent processing votes')
+KAFKA_LAG = Gauge('vote_consumer_kafka_lag', 'Kafka consumer lag in number of messages', ['topic', 'partition'])
+REDIS_CONNECTION_STATUS = Gauge('vote_consumer_redis_connection_status', 'Status of Redis connection (1=connected, 0=disconnected)')
+POSTGRES_CONNECTION_STATUS = Gauge('vote_consumer_postgres_connection_status', 'Status of PostgreSQL connection (1=connected, 0=disconnected)')
 
 def init_db() -> None:
     """PostgreSQL 데이터베이스 테이블 초기화"""
@@ -121,6 +134,10 @@ def connect_to_kafka() -> Optional[KafkaConsumer]:
         try:
             logger.info(f"Connecting to Kafka at {KAFKA_BOOTSTRAP_SERVERS} (attempt {attempt+1}/{max_retries})")
             
+            # 고유 클라이언트 ID 생성
+            client_id = f"vote-consumer-{os.getenv('HOSTNAME', 'unknown')}-{int(time.time())}"
+            logger.info(f"고유 클라이언트 ID 생성: {client_id}")
+            
             consumer = KafkaConsumer(
                 KAFKA_TOPIC,
                 bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS.split(','),
@@ -130,7 +147,8 @@ def connect_to_kafka() -> Optional[KafkaConsumer]:
                 value_deserializer=lambda m: json.loads(m.decode('utf-8')),
                 max_poll_interval_ms=300000,  # 5분
                 session_timeout_ms=30000,     # 30초
-                heartbeat_interval_ms=10000   # 10초
+                heartbeat_interval_ms=10000,  # 10초
+                client_id=client_id           # 고유 클라이언트 ID 추가
             )
             
             logger.info("Successfully connected to Kafka")
@@ -287,13 +305,17 @@ def process_vote_message(message: Dict[str, Any], redis_client: redis.Redis, pg_
         return False
 
 def signal_handler(sig, frame):
-    """프로세스 종료 시그널 핸들러"""
+    """시그널 핸들러 (그레이스풀 셧다운)"""
     global running
-    logger.info("Received termination signal, shutting down...")
+    logger.info("SIGTERM/SIGINT 수신, 안전하게 종료합니다...")
     running = False
+    # 이 시점에서 main 함수의 루프가 곧 종료되고 자원 정리가 이루어짐
 
 def main():
     """메인 함수"""
+    # Prometheus 메트릭 서버 시작 (8000 포트)
+    prometheus_client.start_http_server(8000)
+    
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     

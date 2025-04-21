@@ -33,11 +33,6 @@ services:
     networks:
       - voting-network
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # VM3 - Kafka Consumer
   vote-consumer:
@@ -57,7 +52,7 @@ services:
     networks:
       - voting-network
     volumes:
-      - ./consumer/consumer.py:/app/consumer.py
+      - ./vote-consumer:/app
     depends_on:
       - kafka
       - postgres
@@ -142,10 +137,91 @@ services:
     restart: always
     command: postgres -c 'max_connections=200' -c 'listen_addresses=*' -c 'log_statement=all'
 
+  # Prometheus - 메트릭 수집 및 저장
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - voting-network
+    restart: always
+
+  # Grafana - 메트릭 시각화
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - voting-network
+    restart: always
+
+  # Redis Exporter - Redis 메트릭 수집
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    networks:
+      - voting-network
+    restart: always
+
+  # PostgreSQL Exporter - PostgreSQL 메트릭 수집
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:postgres@postgres:5432/votingdb?sslmode=disable
+    depends_on:
+      - postgres
+    networks:
+      - voting-network
+    restart: always
+
+  # Node Exporter - 시스템 메트릭 수집
+  node-exporter:
+    image: prom/node-exporter:latest
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    networks:
+      - voting-network
+    restart: always
+
 networks:
   voting-network:
     driver: bridge
 
 volumes:
   redis_data:
-  postgres_data: 
+  postgres_data:
+  prometheus_data:
+  grafana_data: 
